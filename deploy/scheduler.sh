@@ -19,7 +19,7 @@
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_FILE="$REPO_DIR/logs/scheduler.log"
-APP_NAME="financial-analyzer"
+APPS=("stock-backend" "stock-frontend")
 
 # Make sure log dir exists
 mkdir -p "$REPO_DIR/logs"
@@ -43,43 +43,25 @@ fi
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 do_start() {
-  log "▶ Starting $APP_NAME..."
-  cd "$REPO_DIR" || exit 1
-
-  # Check if already running
-  STATUS=$($PM2 jlist 2>/dev/null | python3 -c "
-import json,sys
-try:
-  apps = json.load(sys.stdin)
-  app = next((a for a in apps if a.get('name') == '$APP_NAME'), None)
-  print(app['pm2_env']['status'] if app else 'NOT_FOUND')
-except: print('ERROR')
-" 2>/dev/null || echo "UNKNOWN")
-
-  if [ "$STATUS" = "online" ]; then
-    log "  Already online – nothing to do."
-  elif [ "$STATUS" = "stopped" ] || [ "$STATUS" = "errored" ]; then
-    $PM2 start "$APP_NAME" >> "$LOG_FILE" 2>&1
-    log "  Started from stopped state."
-  else
-    # Not registered at all – start fresh
-    $PM2 start ecosystem.config.cjs >> "$LOG_FILE" 2>&1
-    $PM2 save >> "$LOG_FILE" 2>&1
-    log "  Started fresh."
-  fi
+  log "▶ Starting apps: ${APPS[*]}..."
+  for APP in "${APPS[@]}"; do
+    $PM2 start "$APP" >> "$LOG_FILE" 2>&1 && log "  $APP started." || log "  $APP already running or not found."
+  done
 
   # Also restart nginx if it stopped
   if command -v systemctl &>/dev/null; then
     systemctl is-active --quiet nginx || { systemctl start nginx && log "  Nginx restarted."; }
   fi
 
-  log "✅ App is UP."
+  log "✅ Apps are UP."
 }
 
 do_stop() {
-  log "▶ Stopping $APP_NAME..."
-  $PM2 stop "$APP_NAME" >> "$LOG_FILE" 2>&1 && log "  PM2 app stopped." || log "  (app was already stopped or not found)"
-  log "🌙 App is DOWN for the night."
+  log "▶ Stopping apps: ${APPS[*]}..."
+  for APP in "${APPS[@]}"; do
+    $PM2 stop "$APP" >> "$LOG_FILE" 2>&1 && log "  $APP stopped." || log "  $APP already stopped or not found."
+  done
+  log "🌙 Apps are DOWN for the night."
 }
 
 do_status() {
@@ -87,7 +69,7 @@ do_status() {
   echo "Israel time : $(TZ='Asia/Jerusalem' date '+%Y-%m-%d %H:%M:%S %Z')"
   echo "Server UTC  : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo ""
-  $PM2 status "$APP_NAME" 2>/dev/null || echo "PM2 app not found"
+  $PM2 list
   echo ""
   echo "Last 20 scheduler log lines:"
   tail -20 "$LOG_FILE" 2>/dev/null || echo "(no log yet)"
