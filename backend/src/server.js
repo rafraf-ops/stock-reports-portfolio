@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import companiesRouter from './routes/companies.js';
 import portfolioRouter from './routes/portfolio.js';
 import cookieParser from 'cookie-parser';
@@ -11,6 +13,7 @@ import stockPriceRouter from './routes/stock-price.js';
 import aiRouter from './routes/ai.js';
 import financeRouter from './routes/finance.js';
 import importRouter from './routes/import.js';
+import watchlistRouter from './routes/watchlist.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,15 +21,76 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
+// ── JWT secret sanity check ──────────────────────────────────────────────────
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-secret-key-change-in-production') {
+  console.warn('⚠️  WARNING: JWT_SECRET is not set or uses the default value. Set a strong secret in .env!');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Security headers (Helmet) ────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // Allow frontend dev server embedding
+  contentSecurityPolicy: false,     // Configure separately if needed
+}));
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (curl, mobile apps, same-origin)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
+
+// ── Global rate limiter – anti-bot / DDoS protection ────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300,                  // max 300 requests per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please try again later.' },
+});
+app.use(globalLimiter);
+
+// ── Strict limiter for auth endpoints ────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // max 20 login/register attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many auth attempts. Please try again in 15 minutes.' },
+});
+
+// ── Strict limiter for AI/expensive endpoints ─────────────────────────────────
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,             // max 10 AI calls per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'AI rate limit reached. Please wait a moment.' },
+});
+
+// ── Price API limiter (prevent scraping) ──────────────────────────────────────
+const priceLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,             // max 60 price requests per minute per IP (1/sec)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Price API rate limit reached.' },
+});
+
 // Middleware
 app.use(cookieParser());
-const corsOrigin = process.env.CORS_ORIGIN || '*';
-app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -49,13 +113,14 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/portfolio', portfolioRouter);
-app.use('/api/stock-price', stockPriceRouter);
-app.use('/api/ai', aiRouter);
+app.use('/api/stock-price', priceLimiter, stockPriceRouter);
+app.use('/api/ai', aiLimiter, aiRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/import', importRouter);
+app.use('/api/watchlist', watchlistRouter);
 
 
 // Serve frontend static files in production

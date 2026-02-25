@@ -28,17 +28,10 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleDevLogin = async () => {
-    setLoading(true);
-    const result = await login('dev@local.com', 'password123');
-    
-    if (result.success) {
-      toast.success('התחברת כמשתמש פיתוח!');
-      setTimeout(() => navigate('/portfolio'), 500);
-    } else {
-      toast.error('שגיאה בהתחברות');
-    }
-    setLoading(false);
+  // Pre-fill dev email so tester must still type the password manually
+  const handleDevPrefill = () => {
+    setFormData({ email: 'dev@local.com', password: '' });
+    toast('הוזן אימייל פיתוח — הזן סיסמה להמשך', { icon: '🔧' });
   };
 
   return (
@@ -105,11 +98,11 @@ export default function LoginPage() {
           <div className="border-t border-gray-200 pt-4">
             <button
               type="button"
-              onClick={handleDevLogin}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors"
+              onClick={handleDevPrefill}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-500 py-2 rounded-lg text-sm font-medium transition-colors"
               disabled={loading}
             >
-              🔧 התחברות פיתוח (dev@local.com)
+              🔧 מלא אימייל פיתוח (הזן סיסמה ידנית)
             </button>
           </div>
 

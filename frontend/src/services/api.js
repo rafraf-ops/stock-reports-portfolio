@@ -41,6 +41,15 @@ export const stockPriceAPI = {
     api.get('/stock-price/providers'),
 };
 
+// Watchlist API
+export const watchlistAPI = {
+  getAll:     (token)           => api.get('/watchlist',        { headers: { Authorization: `Bearer ${token}` } }),
+  getPrices:  (token)           => api.get('/watchlist/prices', { headers: { Authorization: `Bearer ${token}` } }),
+  add:        (token, data)     => api.post('/watchlist',       data, { headers: { Authorization: `Bearer ${token}` } }),
+  update:     (token, id, data) => api.put(`/watchlist/${id}`,  data, { headers: { Authorization: `Bearer ${token}` } }),
+  remove:     (token, id)       => api.delete(`/watchlist/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+};
+
 // Helper to format currency
 export const formatCurrency = (value, decimals = 2) => {
   if (!value) return 'לא זמין';

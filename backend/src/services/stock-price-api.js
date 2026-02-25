@@ -1,11 +1,44 @@
 import axios from 'axios';
 import NodeCache from 'node-cache';
+import db from './init-database.js';
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const priceCache      = new NodeCache({ stdTTL: 300  });   // 5 min – live prices
 const historyCache    = new NodeCache({ stdTTL: 3600 });   // 1 hr  – historical
 const exchangeCache   = new NodeCache({ stdTTL: 1800 });   // 30 min – FX rates
 const metaCache       = new NodeCache({ stdTTL: 86400 });  // 24 hr – asset type lookup
+
+// ─── Persistent DB cache helpers ──────────────────────────────────────────────
+// TTLs in seconds
+const DB_CACHE_TTL = { price: 300, history: 3600, news: 900, fx: 1800 };
+
+function dbCacheGet(key) {
+  try {
+    const row = db.prepare('SELECT data, expires_at FROM api_cache WHERE cache_key = ?').get(key);
+    if (!row) return null;
+    if (Date.now() > row.expires_at) {
+      db.prepare('DELETE FROM api_cache WHERE cache_key = ?').run(key);
+      return null;
+    }
+    return JSON.parse(row.data);
+  } catch { return null; }
+}
+
+function dbCacheSet(key, data, ttlSeconds) {
+  try {
+    const expiresAt = Date.now() + ttlSeconds * 1000;
+    db.prepare(`
+      INSERT INTO api_cache (cache_key, data, expires_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(cache_key) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at
+    `).run(key, JSON.stringify(data), expiresAt);
+  } catch (e) { console.warn('DB cache write failed:', e.message); }
+}
+
+// Purge expired entries periodically (every 30 min)
+setInterval(() => {
+  try { db.prepare('DELETE FROM api_cache WHERE expires_at < ?').run(Date.now()); } catch {}
+}, 30 * 60 * 1000);
 
 const EXCHANGE_RATE_KEY = 'USD_ILS_RATE';
 
@@ -226,8 +259,19 @@ async function coinGeckoGetPrice(symbol) {
  */
 export async function getCurrentPrice(symbol) {
   const cacheKey = symbol.toUpperCase();
-  const cached   = priceCache.get(cacheKey);
-  if (cached) { console.log(`✓ Cache hit: ${symbol}`); return cached; }
+
+  // 1) In-memory (fastest)
+  const cached = priceCache.get(cacheKey);
+  if (cached) { console.log(`✓ Mem-cache hit: ${symbol}`); return cached; }
+
+  // 2) Persistent DB cache (survives restarts, saves API quota)
+  const dbKey    = `price_${cacheKey}`;
+  const dbCached = dbCacheGet(dbKey);
+  if (dbCached) {
+    priceCache.set(cacheKey, dbCached); // warm in-memory cache too
+    console.log(`✓ DB-cache hit: ${symbol}`);
+    return dbCached;
+  }
 
   const assetType = detectAssetType(symbol);
   let result = null;
@@ -255,6 +299,7 @@ export async function getCurrentPrice(symbol) {
       result.assetType = 'tase';
     }
     priceCache.set(cacheKey, result);
+    if (result.source !== 'mock') dbCacheSet(dbKey, result, DB_CACHE_TTL.price);
     return result;
   }
 
@@ -280,6 +325,7 @@ export async function getCurrentPrice(symbol) {
       }
     }
     priceCache.set(cacheKey, result);
+    if (result.source !== 'mock') dbCacheSet(dbKey, result, DB_CACHE_TTL.price);
     return result;
   }
 
@@ -307,6 +353,7 @@ export async function getCurrentPrice(symbol) {
   }
 
   priceCache.set(cacheKey, result);
+  if (result.source !== 'mock') dbCacheSet(dbKey, result, DB_CACHE_TTL.price);
   return result;
 }
 
@@ -336,8 +383,18 @@ export async function getMultiplePrices(symbols) {
  */
 export async function getHistoricalData(symbol, range = '1y', interval = '1d') {
   const cacheKey = `hist_${symbol}_${range}_${interval}`;
-  const cached   = historyCache.get(cacheKey);
+
+  // In-memory first
+  const cached = historyCache.get(cacheKey);
   if (cached) return cached;
+
+  // Persistent DB cache
+  const dbKey    = `history_${symbol}_${range}_${interval}`;
+  const dbCached = dbCacheGet(dbKey);
+  if (dbCached) {
+    historyCache.set(cacheKey, dbCached);
+    return dbCached;
+  }
 
   const assetType = detectAssetType(symbol);
 
@@ -371,6 +428,7 @@ export async function getHistoricalData(symbol, range = '1y', interval = '1d') {
 
     const payload = { symbol: symbol.toUpperCase(), range, interval, currency: displayCurrency, assetType, data, source: 'yahoo' };
     historyCache.set(cacheKey, payload);
+    dbCacheSet(dbKey, payload, DB_CACHE_TTL.history);
     return payload;
 
   } catch (e) {
@@ -402,6 +460,7 @@ export async function getHistoricalData(symbol, range = '1y', interval = '1d') {
 
         const payload = { symbol: symbol.toUpperCase(), range, interval, currency: 'USD', assetType, data, source: 'alphavantage' };
         historyCache.set(cacheKey, payload);
+        dbCacheSet(dbKey, payload, DB_CACHE_TTL.history);
         return payload;
       } catch (e) {
         console.warn(`AV history failed for ${symbol}: ${e.message}`);
@@ -428,6 +487,7 @@ export async function getHistoricalData(symbol, range = '1y', interval = '1d') {
         }));
         const payload = { symbol: base, range, interval, currency: 'USD', assetType: 'crypto', data, source: 'coingecko' };
         historyCache.set(cacheKey, payload);
+        dbCacheSet(dbKey, payload, DB_CACHE_TTL.history);
         return payload;
       }
     } catch (e) {

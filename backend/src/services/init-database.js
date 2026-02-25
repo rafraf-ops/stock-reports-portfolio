@@ -97,6 +97,35 @@ db.exec(`
     source      TEXT NOT NULL DEFAULT 'static',
     created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Persistent API response cache (survives server restarts)
+  CREATE TABLE IF NOT EXISTS api_cache (
+    cache_key   TEXT PRIMARY KEY,
+    data        TEXT NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at);
+
+  -- Watchlist: stocks to watch for buy opportunities
+  CREATE TABLE IF NOT EXISTS watchlist (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id           INTEGER NOT NULL,
+    symbol            TEXT NOT NULL,
+    name              TEXT,
+    currency          TEXT NOT NULL DEFAULT 'USD',
+    start_watch_price REAL,
+    target_buy_price  REAL,
+    take_profit_price REAL,
+    stop_loss_price   REAL,
+    notes             TEXT,
+    status            TEXT NOT NULL DEFAULT 'watching',
+    added_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(user_id, symbol)
+  );
+  CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
 `);
 
 console.log('✅ Database tables created');

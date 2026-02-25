@@ -19,7 +19,21 @@ router.post('/register', async (req, res) => {
         error: 'Email, password, and name are required'
       });
     }
-    
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters'
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format'
+      });
+    }
+
     // Check if user exists
     const existingUser = userDB.findUserByEmail(email);
     if (existingUser) {

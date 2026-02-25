@@ -275,6 +275,10 @@ export default function HomePage() {
                   className="text-sm font-medium text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors">
                   💼 תיק
                 </button>
+                <button onClick={() => navigate('/watchlist')}
+                  className="text-sm font-medium text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+                  🔭 רדאר
+                </button>
                 <button onClick={() => navigate('/finance')}
                   className="text-sm font-medium text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
                   🏠 פיננסי
@@ -407,6 +411,23 @@ export default function HomePage() {
           {isAuthenticated && (
             <div className="space-y-4">
               <PortfolioWidget token={token} />
+
+              {/* ── Watchlist / Radar card (prominent) ── */}
+              <button
+                onClick={() => navigate('/watchlist')}
+                className="w-full bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-2xl shadow-sm p-4 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🔭</span>
+                  <div className="text-right">
+                    <p className="font-bold text-base">רדאר מניות</p>
+                    <p className="text-blue-200 text-xs">מעקב יעדי קנייה · Take Profit · Stop Loss</p>
+                  </div>
+                </div>
+                <svg className="w-5 h-5 text-blue-300 group-hover:text-white transition-colors rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
 
               {/* Quick links */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
