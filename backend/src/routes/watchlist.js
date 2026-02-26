@@ -80,7 +80,7 @@ router.post('/', (req, res) => {
       status
     );
 
-    const item = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(result.lastInsertRowid);
+    const item = db.prepare('SELECT * FROM watchlist WHERE id = ? AND user_id = ?').get(result.lastInsertRowid, req.user.id);
     res.status(201).json({ success: true, data: item });
   } catch (e) {
     if (e.message.includes('UNIQUE')) {
@@ -134,7 +134,7 @@ router.put('/:id', (req, res) => {
       id, req.user.id
     );
 
-    const updated = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM watchlist WHERE id = ? AND user_id = ?').get(id, req.user.id);
     res.json({ success: true, data: updated });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

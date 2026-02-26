@@ -5,24 +5,24 @@ import toast, { Toaster } from 'react-hot-toast';
 import { companiesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-// ─── Local-storage helpers ────────────────────────────────────────────────────
-const HISTORY_KEY  = 'stock_history';
-const FAVORITE_KEY = 'stock_favorites';
+// ─── Local-storage helpers (scoped per user to prevent data leakage) ──────────
+const historyKey  = uid => `stock_history_${uid  || 'guest'}`;
+const favKey      = uid => `stock_favorites_${uid || 'guest'}`;
 
-function getHistory()   { try { return JSON.parse(localStorage.getItem(HISTORY_KEY)  || '[]'); } catch { return []; } }
-function getFavorites() { try { return JSON.parse(localStorage.getItem(FAVORITE_KEY) || '[]'); } catch { return []; } }
+function getHistory(uid)   { try { return JSON.parse(localStorage.getItem(historyKey(uid))  || '[]'); } catch { return []; } }
+function getFavorites(uid) { try { return JSON.parse(localStorage.getItem(favKey(uid)) || '[]'); } catch { return []; } }
 
-function addHistory(item) {
-  const h = getHistory().filter(x => x.symbol !== item.symbol);
+function addHistory(uid, item) {
+  const h = getHistory(uid).filter(x => x.symbol !== item.symbol);
   h.unshift({ ...item, visitedAt: Date.now() });
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20)));
+  localStorage.setItem(historyKey(uid), JSON.stringify(h.slice(0, 20)));
 }
 
-function toggleFavorite(item) {
-  const favs = getFavorites();
+function toggleFavorite(uid, item) {
+  const favs = getFavorites(uid);
   const idx  = favs.findIndex(x => x.symbol === item.symbol);
   if (idx >= 0) favs.splice(idx, 1); else favs.unshift({ ...item, savedAt: Date.now() });
-  localStorage.setItem(FAVORITE_KEY, JSON.stringify(favs.slice(0, 30)));
+  localStorage.setItem(favKey(uid), JSON.stringify(favs.slice(0, 30)));
   return idx < 0; // true = just added
 }
 
@@ -164,9 +164,16 @@ export default function HomePage() {
   const [searchResults, setSearchResults] = useState(null);
   const [showDropdown,  setShowDropdown]  = useState(false);
   const [isSearching,   setIsSearching]   = useState(false);
-  const [history,       setHistory]       = useState(getHistory);
-  const [favorites,     setFavorites]     = useState(getFavorites);
+  const uid = user?.id || 'guest';
+  const [history,       setHistory]       = useState(() => getHistory(uid));
+  const [favorites,     setFavorites]     = useState(() => getFavorites(uid));
   const [listTab,       setListTab]       = useState('favorites');
+
+  // Reload lists when user switches (login / logout)
+  useEffect(() => {
+    setHistory(getHistory(uid));
+    setFavorites(getFavorites(uid));
+  }, [uid]);
 
   const dropdownRef = useRef(null);
   const inputRef    = useRef(null);
@@ -207,10 +214,10 @@ export default function HomePage() {
 
   const goToCompany = useCallback((item) => {
     const meta = typeof item === 'string' ? { symbol: item } : item;
-    addHistory(meta);
-    setHistory(getHistory());
+    addHistory(uid, meta);
+    setHistory(getHistory(uid));
     navigate(`/company/${meta.symbol}`);
-  }, [navigate]);
+  }, [navigate, uid]);
 
   const handleSelectCompany = async (ticker, isLocal, meta = {}) => {
     setShowDropdown(false); setSearchTerm('');
@@ -239,14 +246,14 @@ export default function HomePage() {
   };
 
   const handleToggleFav = item => {
-    const nowFav = toggleFavorite(item);
-    setFavorites(getFavorites());
+    const nowFav = toggleFavorite(uid, item);
+    setFavorites(getFavorites(uid));
     toast(nowFav ? `⭐ ${item.symbol} נוסף` : `${item.symbol} הוסר`, { duration: 1600 });
   };
 
   const removeFromHistory = symbol => {
-    const h = getHistory().filter(x => x.symbol !== symbol);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+    const h = getHistory(uid).filter(x => x.symbol !== symbol);
+    localStorage.setItem(historyKey(uid), JSON.stringify(h));
     setHistory(h);
   };
 
