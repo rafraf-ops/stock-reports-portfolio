@@ -459,8 +459,8 @@ export default function HomePage() {
           {/* ── Main right column ── */}
           <div className={isAuthenticated ? 'lg:col-span-2 space-y-5' : 'space-y-5'}>
 
-            {/* Favorites / History card */}
-            {(favorites.length > 0 || history.length > 0) ? (
+            {/* Favorites / History card — only for authenticated users */}
+            {isAuthenticated && (favorites.length > 0 || history.length > 0) ? (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* Tab header */}
                 <div className="flex border-b border-gray-100">
