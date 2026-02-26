@@ -126,6 +126,16 @@ db.exec(`
     UNIQUE(user_id, symbol)
   );
   CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
+
+  -- Password reset tokens (1-hour expiry, single use)
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token      TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 console.log('✅ Database tables created');

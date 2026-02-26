@@ -278,22 +278,25 @@ export default function HomePage() {
           <div className="flex items-center gap-1">
             {isAuthenticated ? (
               <>
+                {/* Desktop nav links — hidden on mobile (bottom nav used instead) */}
                 <button onClick={() => navigate('/portfolio')}
-                  className="text-sm font-medium text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors">
+                  className="hidden lg:flex text-sm font-medium text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors">
                   💼 תיק
                 </button>
                 <button onClick={() => navigate('/watchlist')}
-                  className="text-sm font-medium text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+                  className="hidden lg:flex text-sm font-medium text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
                   🔭 רדאר
                 </button>
                 <button onClick={() => navigate('/finance')}
-                  className="text-sm font-medium text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
-                  🏠 פיננסי
+                  className="hidden lg:flex text-sm font-medium text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
+                  🏦 פיננסי
                 </button>
-                <div className="h-5 w-px bg-gray-200 mx-1" />
-                <span className="text-sm text-gray-500 hidden sm:block">{user?.name}</span>
+                <div className="hidden lg:block h-5 w-px bg-gray-200 mx-1" />
+                <span className="text-sm text-gray-500 hidden lg:block">{user?.name}</span>
                 <button onClick={() => { logout(); navigate('/'); }}
-                  className="text-gray-400 hover:text-gray-700 px-2 text-lg" title="התנתק">🚪</button>
+                  className="hidden lg:flex text-gray-400 hover:text-gray-700 px-2 text-lg" title="התנתק">🚪</button>
+                {/* Mobile: show first name only */}
+                <span className="text-sm text-gray-500 lg:hidden">{user?.name?.split(' ')[0]}</span>
               </>
             ) : (
               <button onClick={() => navigate('/login')}

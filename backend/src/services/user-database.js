@@ -48,10 +48,15 @@ export const getAllUsers = () => {
   return db.prepare('SELECT id, email, name, provider, created_at FROM users').all();
 };
 
+export const updateUserPassword = (userId, hashedPassword) => {
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, userId);
+};
+
 export default {
   findUserById,
   findUserByEmail,
   findUserByGoogleId,
   createUser,
-  getAllUsers
+  getAllUsers,
+  updateUserPassword
 };

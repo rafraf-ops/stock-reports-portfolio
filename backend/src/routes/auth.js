@@ -1,7 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { generateToken } from '../middleware/auth.js';
 import * as userDB from '../services/user-database.js';
+import db from '../services/init-database.js';
+import { sendPasswordResetEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -170,6 +173,76 @@ router.post('/google', async (req, res) => {
       success: false,
       error: 'Google login failed'
     });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Request a password reset link
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+
+    const user = userDB.findUserByEmail(email);
+
+    // Always respond success so we don't reveal whether an email is registered
+    if (!user || user.provider !== 'local') {
+      return res.json({ success: true, emailSent: false });
+    }
+
+    // Invalidate old tokens for this user
+    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?').run(user.id);
+
+    const token     = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+    db.prepare('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)')
+      .run(token, user.id, expiresAt);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl    = `${frontendUrl}/reset-password?token=${token}`;
+
+    const emailSent = await sendPasswordResetEmail(email, resetUrl);
+
+    // In dev (no email) expose the URL in the response so admin can use it
+    const devPayload = (!emailSent && process.env.NODE_ENV !== 'production') ? { resetUrl } : {};
+
+    res.json({ success: true, emailSent, ...devPayload });
+  } catch (error) {
+    console.error('Forgot-password error:', error);
+    res.status(500).json({ success: false, error: 'Request failed' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Set a new password using a reset token
+ */
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password)
+      return res.status(400).json({ success: false, error: 'Token and password are required' });
+    if (password.length < 6)
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+
+    const record = db.prepare('SELECT * FROM password_reset_tokens WHERE token = ?').get(token);
+
+    if (!record || record.used || record.expires_at < Date.now()) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    userDB.updateUserPassword(record.user_id, hashedPassword);
+
+    // Mark token as used (single-use)
+    db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE token = ?').run(token);
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Reset-password error:', error);
+    res.status(500).json({ success: false, error: 'Reset failed' });
   }
 });
 

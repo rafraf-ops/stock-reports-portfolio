@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -13,6 +13,8 @@ import ImportPage from './pages/ImportPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import WatchlistPage from './pages/WatchlistPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,26 +123,81 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// ─── Mobile bottom navigation (authenticated users, small screens only) ───────
+function MobileBottomNav() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const { logout } = useAuth();
+
+  const NAV = [
+    { icon: '🏠', label: 'בית',    path: '/' },
+    { icon: '💼', label: 'תיק',    path: '/portfolio' },
+    { icon: '🔭', label: 'רדאר',   path: '/watchlist' },
+    { icon: '🏦', label: 'פיננסי', path: '/finance' },
+  ];
+
+  const isActive = (path) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 shadow-lg lg:hidden z-40" dir="rtl">
+      <div className="flex h-16">
+        {NAV.map(item => (
+          <button
+            key={item.path}
+            onClick={() => navigate(item.path)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors ${
+              isActive(item.path) ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <span className={`text-xl leading-none transition-transform ${isActive(item.path) ? 'scale-110' : ''}`}>
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => { logout(); navigate('/login'); }}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <span className="text-xl leading-none">🚪</span>
+          <span>יציאה</span>
+        </button>
+      </div>
+      {/* Safe area spacer for iPhones with home bar */}
+      <div className="h-safe-area-inset-bottom bg-white/95" />
+    </nav>
+  );
+}
+
 // ─── App wrapper (needs to be inside AuthProvider for InactivityBanner) ───────
 function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <>
       <InactivityBanner />
-      <Routes>
-        {/* Public */}
-        <Route path="/"                  element={<HomePage />} />
-        <Route path="/company/:symbol"   element={<CompanyPage />} />
-        <Route path="/login"             element={<LoginPage />} />
-        <Route path="/register"          element={<RegisterPage />} />
+      {isAuthenticated && <MobileBottomNav />}
+      {/* pb-16 on mobile ensures content isn't hidden behind the bottom nav */}
+      <div className={isAuthenticated ? 'pb-16 lg:pb-0' : ''}>
+        <Routes>
+          {/* Public */}
+          <Route path="/"                  element={<HomePage />} />
+          <Route path="/company/:symbol"   element={<CompanyPage />} />
+          <Route path="/login"             element={<LoginPage />} />
+          <Route path="/register"          element={<RegisterPage />} />
+          <Route path="/forgot-password"   element={<ForgotPasswordPage />} />
+          <Route path="/reset-password"    element={<ResetPasswordPage />} />
 
-        {/* Protected */}
-        <Route path="/portfolio"         element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
-        <Route path="/portfolio/pnl"     element={<ProtectedRoute><PnLPage /></ProtectedRoute>} />
-        <Route path="/finance"           element={<ProtectedRoute><FinancePage /></ProtectedRoute>} />
-        <Route path="/finance/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
-        <Route path="/finance/import"    element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
-        <Route path="/watchlist"         element={<ProtectedRoute><WatchlistPage /></ProtectedRoute>} />
-      </Routes>
+          {/* Protected */}
+          <Route path="/portfolio"         element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
+          <Route path="/portfolio/pnl"     element={<ProtectedRoute><PnLPage /></ProtectedRoute>} />
+          <Route path="/finance"           element={<ProtectedRoute><FinancePage /></ProtectedRoute>} />
+          <Route path="/finance/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
+          <Route path="/finance/import"    element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+          <Route path="/watchlist"         element={<ProtectedRoute><WatchlistPage /></ProtectedRoute>} />
+        </Routes>
+      </div>
     </>
   );
 }
