@@ -18,8 +18,8 @@ import watchlistRouter from './routes/watchlist.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config();
+// Load environment variables — explicit path works regardless of PM2 cwd
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // ── JWT secret sanity check ──────────────────────────────────────────────────
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-secret-key-change-in-production') {
