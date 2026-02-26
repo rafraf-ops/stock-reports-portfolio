@@ -15,6 +15,7 @@ import RegisterPage from './pages/RegisterPage';
 import WatchlistPage from './pages/WatchlistPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminPage from './pages/AdminPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +135,7 @@ function MobileBottomNav() {
     { icon: '💼', label: 'תיק',    path: '/portfolio' },
     { icon: '🔭', label: 'רדאר',   path: '/watchlist' },
     { icon: '🏦', label: 'פיננסי', path: '/finance' },
+    ...(user?.id === 1 ? [{ icon: '🛡️', label: 'ניהול', path: '/admin' }] : []),
   ];
 
   const isActive = (path) =>
@@ -196,6 +198,7 @@ function AppRoutes() {
           <Route path="/finance/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
           <Route path="/finance/import"    element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
           <Route path="/watchlist"         element={<ProtectedRoute><WatchlistPage /></ProtectedRoute>} />
+          <Route path="/admin"             element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

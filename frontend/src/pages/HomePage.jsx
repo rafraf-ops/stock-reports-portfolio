@@ -291,6 +291,12 @@ export default function HomePage() {
                   className="hidden lg:flex text-sm font-medium text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
                   🏦 פיננסי
                 </button>
+                {user?.id === 1 && (
+                  <button onClick={() => navigate('/admin')}
+                    className="hidden lg:flex text-sm font-medium text-gray-500 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">
+                    🛡️ ניהול
+                  </button>
+                )}
                 <div className="hidden lg:block h-5 w-px bg-gray-200 mx-1" />
                 <span className="text-sm text-gray-500 hidden lg:block">{user?.name}</span>
                 <button onClick={() => { logout(); navigate('/'); }}

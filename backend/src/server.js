@@ -14,6 +14,7 @@ import aiRouter from './routes/ai.js';
 import financeRouter from './routes/finance.js';
 import importRouter from './routes/import.js';
 import watchlistRouter from './routes/watchlist.js';
+import adminRouter from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -121,6 +122,7 @@ app.use('/api/ai', aiLimiter, aiRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/import', importRouter);
 app.use('/api/watchlist', watchlistRouter);
+app.use('/api/admin',    adminRouter);
 
 
 // Serve frontend static files in production
