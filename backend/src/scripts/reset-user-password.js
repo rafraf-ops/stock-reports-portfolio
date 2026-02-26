@@ -13,7 +13,7 @@ import { dirname, join } from 'path';
 import readline from 'readline';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const db = new Database(join(__dirname, '../../../database.db'));
+const db = new Database(join(__dirname, '../../database.db'));
 
 const users = db.prepare(`SELECT id, email, name, provider, created_at FROM users ORDER BY id`).all();
 
